@@ -1,0 +1,33 @@
+@keyframes gradientBackground {
+    0%, 100% { background-color: #1fffbc; }
+    20% { background-color: #4827ec; }
+    40% { background-color: #0e124d; }
+    60% { background-color: #f8fbfb; }
+    80% { background-color: #d1ff4f; }
+  }
+  
+  @keyframes spinAndScale {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(0.8); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  
+  .triangle-container {
+    width: 100px;
+    height: 100px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .triangle {
+    width: 0;
+    border-style: solid;
+    border-width: 50px 50px 0 50px;
+    border-color: transparent transparent transparent #1fffbc;
+    animation: gradientBackground 5s linear infinite, spinAndScale 3s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: 0 0;
+  }
+  
