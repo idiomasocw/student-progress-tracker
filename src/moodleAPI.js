@@ -17,3 +17,7 @@ const fetchFromMoodle = async (functionName, params = {}) => {
 export const getCourses = () => fetchFromMoodle('core_course_search_courses', { criterianame: 'search', criteriavalue: '' });
 export const getGroups = (courseId) => fetchFromMoodle('core_group_get_course_groups', { courseid: courseId });
 export const getEnrolledStudents = (courseId) => fetchFromMoodle('core_enrol_get_enrolled_users', { courseid: courseId });
+
+
+
+

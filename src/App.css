@@ -1,17 +1,21 @@
+body{
+  background-color: aliceblue;
+}
 .App {
   text-align: center;
+  overflow: hidden;
 }
 
 .progress {
   position: relative;
-  margin: 2rem auto;
-  width: 120px;
-  height: 120px;
+  margin: 2px 2px 2px 2px;
+  width: 60px;
+  height: 60px;
 }
 
 #progress-circle {
-  width: 100%;
-  height: 100%;
+  width: 80%;
+  height: 80%;
 }
 
 .circle-bg,
@@ -31,10 +35,10 @@
 
 #progress-percent {
   position: absolute;
-  top: 50%;
+  top: 25%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 24px;
+  font-size: 12px;
   font-weight: bold;
 }
 
@@ -42,11 +46,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: rgb(14, 11, 82);
 }
+
+#student-name{color:white;}
 
 .edit-mode-toggle {
   cursor: pointer;
+  color: white;
 }
+
+.toggle-label{margin-right: 3px;}
 
 .add-lesson {
   cursor: pointer;
