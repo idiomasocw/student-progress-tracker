@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlusCircle, faToggleOn, faToggleOff, faPenSquare, faCheckSquare } from '@fortawesome/free-solid-svg-icons';
 import Modal from './Modal';
 import './App.css';
-import { getCourses, getGroups, getEnrolledStudents } from './moodleAPI';
+import { getCourses, getGroups, getStudentsInGroup,getEnrolledStudents } from './moodleAPI';
 import { initializeApp } from "firebase/app";
 import firebaseConfig from './firebaseConfig';
 import { testFirebaseConnection } from './firebaseTest';
@@ -48,10 +48,32 @@ function App() {
     setGroups(groups);
   };
 
-  const loadStudents = async (courseId) => {
-    const students = await getEnrolledStudents(courseId);
-    console.log("Students Response:", students); // Debug the returned data
-    setStudents(students);
+  const loadStudents = async (groupId) => {
+    console.log("Group ID:", groupId);
+    const groupResponse = await getStudentsInGroup([groupId]);
+    console.log("Full Response:", groupResponse);
+    const userIds = groupResponse[0].userids;
+  
+    // Get all enrolled students in the course (level)
+    const allEnrolledUsers = await getEnrolledStudents(selectedLevel);
+    console.log("All Enrolled Users:", allEnrolledUsers);
+  
+    // Check if allEnrolledUsers is an array before proceeding
+    if (Array.isArray(allEnrolledUsers)) {
+      // Filter users who have the student role
+      const allEnrolledStudents = allEnrolledUsers.filter((user) => {
+        return user.roles.some((role) => role.shortname === 'student'); // Adjust based on your role setup
+      });
+  
+      console.log("All Enrolled Students:", allEnrolledStudents);
+  
+      // Filter the students that are part of the selected group
+      const studentsInGroup = allEnrolledStudents.filter(student => userIds.includes(student.id));
+      setStudents(studentsInGroup);
+      console.log("Students in Group:", studentsInGroup);
+    } else {
+      console.error("Expected allEnrolledUsers to be an array, but received:", allEnrolledUsers);
+    }
   };
 
 
@@ -73,7 +95,7 @@ function App() {
   const handleGroupChange = async (e) => {
     const groupId = e.target.value;
     setSelectedGroup(groupId);
-    await loadStudents(selectedLevel); // Pass selectedLevel instead of groupId
+    await loadStudents(groupId); // Pass group
   };
 
   const handleStudentChange = async (e) => {
@@ -109,13 +131,49 @@ function App() {
   
       checkboxes.forEach((checkbox, index) => {
         const lessonId = `lesson${index + 1}`;
-        checkbox.checked = lessonsProgress[lessonId] || false; // Set checkbox status based on lesson progress
+        const timestampSpan = document.getElementById(`timestamp-lesson${index + 1}`);
+        const progress = lessonsProgress[lessonId] || { checked: false };
+    
+        checkbox.checked = progress.checked;
+    
+        // Update the displayed timestamp
+        if (timestampSpan) {
+          if (progress.checked && progress.timestamp) {
+            const date = new Date(progress.timestamp);
+            const formattedTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} (${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}) -`;
+            timestampSpan.textContent = formattedTime;
+            timestampSpan.classList.add('timestamp');
+          } else {
+            timestampSpan.textContent = '';
+          }
+        }
       });
     }
   };
+
+  const handleCheckboxChange = async (event) => {
+    const targetCheckbox = event.target;
+    const lessonId = targetCheckbox.id;
+    const lessonIndex = parseInt(lessonId.replace('lesson', '')) - 1; // Extract index from id
+    const timestampSpan = document.getElementById(`timestamp-lesson${lessonIndex + 1}`);
+    
+    // If it's the first time checking the box or unchecking it, update the timestamp
+    if (!timestampSpan.dataset.checked || timestampSpan.dataset.checked !== targetCheckbox.checked.toString()) {
+      if (targetCheckbox.checked) {
+        const timestamp = new Date();
+        const formattedTime = `${String(timestamp.getHours()).padStart(2, '0')}:${String(timestamp.getMinutes()).padStart(2, '0')} (${timestamp.getMonth() + 1}/${timestamp.getDate()}/${timestamp.getFullYear()}) `;
+        timestampSpan.dataset.timestamp = timestamp.toISOString();
+        timestampSpan.textContent = formattedTime;
+        timestampSpan.classList.add('timestamp');
+        
+      } else {
+        timestampSpan.textContent = '';
+        timestampSpan.classList.remove('timestamp');
+      }
+      
+      timestampSpan.dataset.checked = targetCheckbox.checked;     
+    }
   
-  
-  const handleCheckboxChange = async () => {
     const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
     const checkedLessons = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
     setCompletedLessons(checkedLessons);
@@ -128,7 +186,11 @@ function App() {
   
       checkboxes.forEach((checkbox, index) => {
         const lessonId = `lesson${index + 1}`;
-        lessonProgress[lessonId] = checkbox.checked;
+        const timestampSpan = document.getElementById(`timestamp-${lessonId}`);
+        lessonProgress[lessonId] = { checked: checkbox.checked };
+        if (timestampSpan && timestampSpan.dataset.timestamp) {
+          lessonProgress[lessonId].timestamp = timestampSpan.dataset.timestamp;
+        }
       });
   
       // Update student progress in Firestore
@@ -137,7 +199,6 @@ function App() {
       console.log("Updated Completed Lessons:", checkedLessons);
     }
   };
-  
   
 
   const startEditing = (i) => {
@@ -156,7 +217,8 @@ function App() {
 
   const lessonCheckboxes = lessons.map((lesson, i) => (
     <div key={i}>
-      <input type="checkbox" id={`lesson${i}`} onChange={handleCheckboxChange} />
+      <span className={lesson.checked ? 'timestamp':''} id={`timestamp-lesson${i + 1}`}></span>
+      <input type="checkbox" id={`lesson${i + 1}`} onChange={handleCheckboxChange} />
       {lesson.editing ? (
         <input
           type="text"
@@ -167,7 +229,7 @@ function App() {
           autoFocus
         />
       ) : (
-        <label htmlFor={`lesson${i}`}>{lesson.name}</label>
+        <label htmlFor={`lesson${i+1}`}>{lesson.name}</label>
       )}
       {editMode && (
         <FontAwesomeIcon

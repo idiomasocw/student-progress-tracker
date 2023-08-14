@@ -1,4 +1,4 @@
-/* import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 import firebaseConfig from './firebaseConfig';
 import { initializeApp } from "firebase/app";
 
@@ -15,4 +15,3 @@ export const testFirebaseConnection = async () => {
     console.log("No such document!");
   }
 };
- */

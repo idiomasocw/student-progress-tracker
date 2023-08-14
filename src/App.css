@@ -63,3 +63,11 @@ body{
   text-align: center;
   margin-bottom: 2rem;
 }
+
+.timestamp{
+  font-size: 9px;
+  background-color: rgb(43, 58, 58);
+  padding: 2px;
+  border-radius: 5px;
+  color: white;
+}
