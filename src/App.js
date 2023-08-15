@@ -16,7 +16,7 @@ import { setStudentLessonProgress, getStudentLessonProgress } from "./progress.j
 function App() {
   const [editMode, setEditMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [lessons, setLessons] = useState(Array.from({ length: 13 }, (_, i) => ({ name: `Lesson ${i + 1}`, editing: false })));
+  const [lessons, setLessons] = useState([]);
   const [completedLessons, setCompletedLessons] = useState(0);
   const [editingValue, setEditingValue] = useState("");
   const [levels, setLevels] = useState([]);
@@ -24,15 +24,43 @@ function App() {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [students, setStudents] = useState([]);
+  
+  const levelMapping = {
+    "6": "A1",
+    "7": "A2",
+    "9": "B1",
+    "14": "B2",
+    "15": "C1"
+  };
+  
 
   useEffect(() => {
     loadLevels();
     testFirebaseConnection();
   }, []);
 
+  const fetchLessonsForLevel = async (levelId) => {
+    const mappedLevelId = levelMapping[levelId];
+    if (!mappedLevelId) {
+      console.error("Invalid level ID:", levelId);
+      return;
+    }
+  
+    console.log("Fetching lessons for level:", mappedLevelId);
+    const levelRef = doc(db, "levels", `level${mappedLevelId}`);
+    const levelSnap = await getDoc(levelRef);
+    console.log("Fetched level data:", levelSnap.data());
+  
+    if (levelSnap.exists()) {
+      const lessonsData = levelSnap.data().lessons || [];
+      setLessons(lessonsData.map(lesson => ({ name: lesson.name, editing: false })));
+    } else {
+      console.error("The level document does not exist.");
+    }
+  }
+  
   const loadLevels = async () => {
     const courses = await getCourses();
-    console.log("All Courses:", courses.courses); // Print all courses
     // Filter the courses based on the shortname
     const validCourseIdentifiers = ["A1", "A2", "B1", "B2", "C1"];
     const filteredCourses = courses.courses.filter(course => {
@@ -41,7 +69,6 @@ function App() {
 
     setLevels(filteredCourses);
   };
-
 
   const loadGroups = async (courseId) => {
     const groups = await getGroups(courseId);
@@ -76,11 +103,10 @@ function App() {
     }
   };
 
-
   const handleLevelChange = async (e) => {
     const courseId = e.target.value;
     setSelectedLevel(courseId);
-
+    await fetchLessonsForLevel(courseId);
     if (courseId === "Select Level") { // If the value is "Select Level", reset groups and students
       setGroups([]);
       setStudents([]);
@@ -90,13 +116,18 @@ function App() {
       setSelectedGroup(null);
       setStudents([]);
     }
-  };
+};
 
-  const handleGroupChange = async (e) => {
-    const groupId = e.target.value;
-    setSelectedGroup(groupId);
+const handleGroupChange = async (e) => {
+  const groupId = e.target.value;
+  setSelectedGroup(groupId);
+  if (groupId === "Select Group") {
+    // When the "Select Group" option is chosen, simply reset the students state.
+    setStudents([]);
+  } else {
     await loadStudents(groupId); // Pass group
-  };
+  }
+};
 
   const handleStudentChange = async (e) => {
     const studentId = e.target.value;
@@ -200,7 +231,6 @@ function App() {
     }
   };
   
-
   const startEditing = (i) => {
     setEditingValue(lessons[i].name);
     setLessons(lessons.map((lesson, j) => j === i ? { ...lesson, editing: true } : lesson));
@@ -244,7 +274,13 @@ function App() {
   return (
     <div className="App">
       <div className="header">
-        <h1 id="student-name">Select a Student</h1>
+      <h1 id="student-name">
+  {!selectedLevel ? "Select a Level" : 
+   !selectedGroup ? "Select a Group" : 
+   students.length === 0 ? "Select a Student" : 
+   document.getElementById('student-name')?.innerText}
+</h1>
+
         <div className="selectors">
           <select onChange={handleLevelChange}>
             <option value="Select Level">Select Level</option>
@@ -275,7 +311,7 @@ function App() {
           <FontAwesomeIcon icon={editMode ? faToggleOn : faToggleOff} />
         </div>
       </div>
-      {selectedLevel && selectedLevel !== "Select Level" ? (
+      {selectedGroup ? (
         <>
           <div className="progress">
             <svg id="progress-circle" viewBox="0 0 36 36">
