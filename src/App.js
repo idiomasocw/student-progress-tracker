@@ -8,10 +8,7 @@ import { initializeApp } from "firebase/app";
 import firebaseConfig from './firebaseConfig';
 import { testFirebaseConnection } from './firebaseTest';
 import SphereComponent from './Sphere';
-import { getFirestore, doc, setDoc, getDoc,updateDoc } from "firebase/firestore";
-import {createLevelWithLessons} from "./levels";
-import {createGroupWithStudents} from "./groups"; 
-import { setStudentLessonProgress, getStudentLessonProgress } from "./progress.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 function App() {
   const [editMode, setEditMode] = useState(false);
@@ -32,7 +29,7 @@ function App() {
     "14": "B2",
     "15": "C1"
   };
-  
+
 
   useEffect(() => {
     loadLevels();
@@ -236,8 +233,16 @@ const handleGroupChange = async (e) => {
     setLessons(lessons.map((lesson, j) => j === i ? { ...lesson, editing: true } : lesson));
   }
 
-  const endEditing = (i) => {
-    setLessons(lessons.map((lesson, j) => j === i ? { ...lesson, editing: false, name: editingValue } : lesson));
+  const endEditing = async (i) => {
+    const updatedLessons = lessons.map((lesson, j) => j === i ? { ...lesson, editing: false, name: editingValue } : lesson);
+    setLessons(updatedLessons);
+
+    // Update lesson names in Firestore if a level is selected
+    if (selectedLevel) {
+      const mappedLevelId = levelMapping[selectedLevel];
+      const levelRef = doc(db, "levels", `level${mappedLevelId}`);
+      await updateDoc(levelRef, { lessons: updatedLessons });
+    }
   }
 
   const addLesson = (lesson) => {
@@ -247,29 +252,33 @@ const handleGroupChange = async (e) => {
 
   const lessonCheckboxes = lessons.map((lesson, i) => (
     <div key={i}>
-      <span className={lesson.checked ? 'timestamp':''} id={`timestamp-lesson${i + 1}`}></span>
-      <input type="checkbox" id={`lesson${i + 1}`} onChange={handleCheckboxChange} />
-      {lesson.editing ? (
-        <input
-          type="text"
-          value={editingValue}
-          onChange={(e) => setEditingValue(e.target.value)}
-          onBlur={() => endEditing(i)}
-          onKeyPress={(event) => event.key === 'Enter' ? endEditing(i) : null}
-          autoFocus
-        />
-      ) : (
-        <label htmlFor={`lesson${i+1}`}>{lesson.name}</label>
-      )}
-      {editMode && (
-        <FontAwesomeIcon
-          icon={lesson.editing ? faCheckSquare : faPenSquare}
-          onClick={() => lesson.editing ? endEditing(i, document.querySelector(`#lesson${i}`).nextElementSibling.value) : startEditing(i)}
-          style={{ color: "#4827ec", marginLeft: "10px" }}
-        />
-      )}
-    </div>
-  ));
+{selectedGroup || students.length > 0 ? (
+      <>
+        <span className={lesson.checked ? 'timestamp':''} id={`timestamp-lesson${i + 1}`}></span>
+        <input type="checkbox" id={`lesson${i + 1}`} onChange={handleCheckboxChange} />
+      </>
+    ) : null}
+    {lesson.editing ? (
+      <input
+        type="text"
+        value={editingValue}
+        onChange={(e) => setEditingValue(e.target.value)}
+        onBlur={() => endEditing(i)}
+        onKeyPress={(event) => event.key === 'Enter' ? endEditing(i) : null}
+        autoFocus
+      />
+    ) : (
+      <label htmlFor={`lesson${i+1}`}>{lesson.name}</label>
+    )}
+    {editMode && (
+      <FontAwesomeIcon
+        icon={lesson.editing ? faCheckSquare : faPenSquare}
+        onClick={() => lesson.editing ? endEditing(i, document.querySelector(`#lesson${i}`).nextElementSibling.value) : startEditing(i)}
+        style={{ color: "#4827ec", marginLeft: "10px" }}
+      />
+    )}
+  </div>
+));
 
   return (
     <div className="App">
@@ -311,8 +320,9 @@ const handleGroupChange = async (e) => {
           <FontAwesomeIcon icon={editMode ? faToggleOn : faToggleOff} />
         </div>
       </div>
-      {selectedGroup ? (
+      {selectedLevel ? (
         <>
+        {(selectedGroup || students.length > 0) && (
           <div className="progress">
             <svg id="progress-circle" viewBox="0 0 36 36">
               <path className="circle-bg" d="M18 2.0845
@@ -323,7 +333,7 @@ const handleGroupChange = async (e) => {
                     a 15.9155 15.9155 0 0 1 0 -31.831" />
             </svg>
             <h2 id="progress-percent">{parseFloat(((completedLessons / lessons.length) * 100).toFixed(1))}%</h2>
-          </div>
+          </div>)}
           {editMode && (
             <div className="add-lesson" onClick={() => setModalVisible(true)}>
               <FontAwesomeIcon icon={faPlusCircle} />

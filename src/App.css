@@ -71,3 +71,16 @@ body{
   border-radius: 5px;
   color: white;
 }
+
+#lessons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* For horizontal screens or wider screens */
+@media (min-width: 768px) {
+  #lessons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
