@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlusCircle, faToggleOn, faToggleOff, faPenSquare, faCheckSquare } from '@fortawesome/free-solid-svg-icons';
 import Modal from './Modal';
 import './App.css';
-import { getCourses, getGroups, getStudentsInGroup,getEnrolledStudents } from './moodleAPI';
+import { getCourses, getGroups, getStudentsInGroup, getEnrolledStudents } from './moodleAPI';
 import { initializeApp } from "firebase/app";
 import firebaseConfig from './firebaseConfig';
 import { testFirebaseConnection } from './firebaseTest';
@@ -21,7 +21,7 @@ function App() {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [students, setStudents] = useState([]);
-  
+
   const levelMapping = {
     "6": "A1",
     "7": "A2",
@@ -42,12 +42,12 @@ function App() {
       console.error("Invalid level ID:", levelId);
       return;
     }
-  
+
     console.log("Fetching lessons for level:", mappedLevelId);
     const levelRef = doc(db, "levels", `level${mappedLevelId}`);
     const levelSnap = await getDoc(levelRef);
     console.log("Fetched level data:", levelSnap.data());
-  
+
     if (levelSnap.exists()) {
       const lessonsData = levelSnap.data().lessons || [];
       setLessons(lessonsData.map(lesson => ({ name: lesson.name, editing: false })));
@@ -55,7 +55,7 @@ function App() {
       console.error("The level document does not exist.");
     }
   }
-  
+
   const loadLevels = async () => {
     const courses = await getCourses();
     // Filter the courses based on the shortname
@@ -77,20 +77,20 @@ function App() {
     const groupResponse = await getStudentsInGroup([groupId]);
     console.log("Full Response:", groupResponse);
     const userIds = groupResponse[0].userids;
-  
+
     // Get all enrolled students in the course (level)
     const allEnrolledUsers = await getEnrolledStudents(selectedLevel);
     console.log("All Enrolled Users:", allEnrolledUsers);
-  
+
     // Check if allEnrolledUsers is an array before proceeding
     if (Array.isArray(allEnrolledUsers)) {
       // Filter users who have the student role
       const allEnrolledStudents = allEnrolledUsers.filter((user) => {
         return user.roles.some((role) => role.shortname === 'student'); // Adjust based on your role setup
       });
-  
+
       console.log("All Enrolled Students:", allEnrolledStudents);
-  
+
       // Filter the students that are part of the selected group
       const studentsInGroup = allEnrolledStudents.filter(student => userIds.includes(student.id));
       setStudents(studentsInGroup);
@@ -113,38 +113,38 @@ function App() {
       setSelectedGroup(null);
       setStudents([]);
     }
-};
+  };
 
-const handleGroupChange = async (e) => {
-  const groupId = e.target.value;
-  setSelectedGroup(groupId);
-  if (groupId === "Select Group") {
-    // When the "Select Group" option is chosen, simply reset the students state.
-    setStudents([]);
-  } else {
-    await loadStudents(groupId); // Pass group
-  }
-};
+  const handleGroupChange = async (e) => {
+    const groupId = e.target.value;
+    setSelectedGroup(groupId);
+    if (groupId === "Select Group") {
+      // When the "Select Group" option is chosen, simply reset the students state.
+      setStudents([]);
+    } else {
+      await loadStudents(groupId); // Pass group
+    }
+  };
 
   const handleStudentChange = async (e) => {
     const studentId = e.target.value;
     const selectedStudent = students.find(student => student.id == studentId);
-  
+
     console.log("Selected Student:", selectedStudent);
     if (selectedStudent) {
       const h1 = document.getElementById('student-name');
       h1.innerText = selectedStudent.fullname;
       h1.dataset.id = selectedStudent.id;
-  
+
       // Reference to the student's document
       const studentRef = doc(db, "groups", selectedGroup, "students", studentId);
-  
+
       // Fetch the document
       const studentSnap = await getDoc(studentRef);
-  
+
       let completedLessons = 0;
       let lessonsProgress = {}; // Define lessonsProgress variable here
-  
+
       // Create the document if it doesn't exist
       if (!studentSnap.exists()) {
         await setDoc(studentRef, { fullname: selectedStudent.fullname, completedLessons, lessonsProgress });
@@ -152,18 +152,18 @@ const handleGroupChange = async (e) => {
         completedLessons = studentSnap.data().completedLessons || 0;
         lessonsProgress = studentSnap.data().lessonsProgress || {};
       }
-  
+
       setCompletedLessons(completedLessons);
-  
+
       const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
-  
+
       checkboxes.forEach((checkbox, index) => {
         const lessonId = `lesson${index + 1}`;
         const timestampSpan = document.getElementById(`timestamp-lesson${index + 1}`);
         const progress = lessonsProgress[lessonId] || { checked: false };
-    
+
         checkbox.checked = progress.checked;
-    
+
         // Update the displayed timestamp
         if (timestampSpan) {
           if (progress.checked && progress.timestamp) {
@@ -184,7 +184,7 @@ const handleGroupChange = async (e) => {
     const lessonId = targetCheckbox.id;
     const lessonIndex = parseInt(lessonId.replace('lesson', '')) - 1; // Extract index from id
     const timestampSpan = document.getElementById(`timestamp-lesson${lessonIndex + 1}`);
-    
+
     // If it's the first time checking the box or unchecking it, update the timestamp
     if (!timestampSpan.dataset.checked || timestampSpan.dataset.checked !== targetCheckbox.checked.toString()) {
       if (targetCheckbox.checked) {
@@ -193,25 +193,25 @@ const handleGroupChange = async (e) => {
         timestampSpan.dataset.timestamp = timestamp.toISOString();
         timestampSpan.textContent = formattedTime;
         timestampSpan.classList.add('timestamp');
-        
+
       } else {
         timestampSpan.textContent = '';
         timestampSpan.classList.remove('timestamp');
       }
-      
-      timestampSpan.dataset.checked = targetCheckbox.checked;     
+
+      timestampSpan.dataset.checked = targetCheckbox.checked;
     }
-  
+
     const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
     const checkedLessons = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
     setCompletedLessons(checkedLessons);
-  
+
     const studentId = document.getElementById('student-name').dataset.id;
-  
+
     if (studentId) {
       const studentRef = doc(db, "groups", selectedGroup, "students", studentId);
       const lessonProgress = {};
-  
+
       checkboxes.forEach((checkbox, index) => {
         const lessonId = `lesson${index + 1}`;
         const timestampSpan = document.getElementById(`timestamp-${lessonId}`);
@@ -220,14 +220,14 @@ const handleGroupChange = async (e) => {
           lessonProgress[lessonId].timestamp = timestampSpan.dataset.timestamp;
         }
       });
-  
+
       // Update student progress in Firestore
       await updateDoc(studentRef, { completedLessons: checkedLessons, lessonsProgress: lessonProgress });
       console.log("Firestore update complete");
       console.log("Updated Completed Lessons:", checkedLessons);
     }
   };
-  
+
   const startEditing = (i) => {
     setEditingValue(lessons[i].name);
     setLessons(lessons.map((lesson, j) => j === i ? { ...lesson, editing: true } : lesson));
@@ -252,43 +252,47 @@ const handleGroupChange = async (e) => {
 
   const lessonCheckboxes = lessons.map((lesson, i) => (
     <div key={i}>
-{selectedGroup || students.length > 0 ? (
-      <>
-        <span className={lesson.checked ? 'timestamp':''} id={`timestamp-lesson${i + 1}`}></span>
-        <input type="checkbox" id={`lesson${i + 1}`} onChange={handleCheckboxChange} />
-      </>
-    ) : null}
-    {lesson.editing ? (
-      <input
-        type="text"
-        value={editingValue}
-        onChange={(e) => setEditingValue(e.target.value)}
-        onBlur={() => endEditing(i)}
-        onKeyPress={(event) => event.key === 'Enter' ? endEditing(i) : null}
-        autoFocus
-      />
-    ) : (
-      <label htmlFor={`lesson${i+1}`}>{lesson.name}</label>
-    )}
-    {editMode && (
-      <FontAwesomeIcon
-        icon={lesson.editing ? faCheckSquare : faPenSquare}
-        onClick={() => lesson.editing ? endEditing(i, document.querySelector(`#lesson${i}`).nextElementSibling.value) : startEditing(i)}
-        style={{ color: "#4827ec", marginLeft: "10px" }}
-      />
-    )}
-  </div>
-));
+      {selectedGroup || students.length > 0 ? (
+        <>
+          <span className={lesson.checked ? 'timestamp' : ''} id={`timestamp-lesson${i + 1}`}></span>
+          <input type="checkbox" id={`lesson${i + 1}`} onChange={handleCheckboxChange} />
+        </>
+      ) : null}
+      {lesson.editing ? (
+        <input
+          type="text"
+          value={editingValue}
+          onChange={(e) => setEditingValue(e.target.value)}
+          onBlur={() => endEditing(i)}
+          onKeyPress={(event) => event.key === 'Enter' ? endEditing(i) : null}
+          autoFocus
+        />
+      ) : (
+        <label htmlFor={`lesson${i + 1}`}>{lesson.name}</label>
+      )}
+      {editMode && (
+        <FontAwesomeIcon
+          icon={lesson.editing ? faCheckSquare : faPenSquare}
+          onClick={() => lesson.editing ? endEditing(i, document.querySelector(`#lesson${i}`).nextElementSibling.value) : startEditing(i)}
+          style={{ color: "#4827ec", marginLeft: "10px" }}
+        />
+      )}
+    </div>
+  ));
 
+  const midpoint = Math.ceil(lessons.length / 2);
+
+  const leftLessons = lessonCheckboxes.slice(0, midpoint);
+  const rightLessons = lessonCheckboxes.slice(midpoint);
   return (
     <div className="App">
       <div className="header">
-      <h1 id="student-name">
-  {!selectedLevel ? "Select a Level" : 
-   !selectedGroup ? "Select a Group" : 
-   students.length === 0 ? "Select a Student" : 
-   document.getElementById('student-name')?.innerText}
-</h1>
+        <h1 id="student-name">
+          {!selectedLevel ? "Select a Level" :
+            !selectedGroup ? "Select a Group" :
+              students.length === 0 ? "Select a Student" :
+                document.getElementById('student-name')?.innerText}
+        </h1>
 
         <div className="selectors">
           <select onChange={handleLevelChange}>
@@ -316,33 +320,41 @@ const handleGroupChange = async (e) => {
           )}
         </div>
         <div className="edit-mode-toggle" onClick={() => setEditMode(!editMode)}>
-          <span className="toggle-label">Edit mode</span> 
+          <span className="toggle-label">Edit mode</span>
           <FontAwesomeIcon icon={editMode ? faToggleOn : faToggleOff} />
         </div>
       </div>
       {selectedLevel ? (
         <>
-        {(selectedGroup || students.length > 0) && (
-          <div className="progress">
-            <svg id="progress-circle" viewBox="0 0 36 36">
-              <path className="circle-bg" d="M18 2.0845
+          {(selectedGroup || students.length > 0) && (
+            <div className="progress">
+              <svg id="progress-circle" viewBox="0 0 36 36">
+                <path className="circle-bg" d="M18 2.0845
                     a 15.9155 15.9155 0 0 1 0 31.831
                     a 15.9155 15.9155 0 0 1 0 -31.831" />
-              <path id="circle" className="circle" strokeDasharray={`${(completedLessons / lessons.length) * 100}, 100`} d="M18 2.0845
+                <path id="circle" className="circle" strokeDasharray={`${(completedLessons / lessons.length) * 100}, 100`} d="M18 2.0845
                     a 15.9155 15.9155 0 0 1 0 31.831
                     a 15.9155 15.9155 0 0 1 0 -31.831" />
-            </svg>
-            <h2 id="progress-percent">{parseFloat(((completedLessons / lessons.length) * 100).toFixed(1))}%</h2>
-          </div>)}
+              </svg>
+              <h2 id="progress-percent">{parseFloat(((completedLessons / lessons.length) * 100).toFixed(1))}%</h2>
+            </div>)}
           {editMode && (
             <div className="add-lesson" onClick={() => setModalVisible(true)}>
               <FontAwesomeIcon icon={faPlusCircle} />
             </div>
           )}
           <Modal visible={modalVisible} onClose={() => setModalVisible(false)} onSubmit={addLesson} />
-          <div id="lessons">
-            {lessonCheckboxes}
+          <div id="lessons" className="lesson-columns">
+            <div className="lesson-container">
+              <div className="lesson-column">
+                {leftLessons}
+              </div>
+              <div className="lesson-column">
+                {rightLessons}
+              </div>
+            </div>
           </div>
+
         </>
       ) : (
         <SphereComponent />

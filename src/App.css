@@ -73,14 +73,36 @@ body{
 }
 
 #lessons {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
+  display: flex;
+  justify-content: center; /* Horizontally center the child container */
+  align-items: center; /* Vertically center the child container */
+  width: 100%;
+  height: 100%; /* If you want to fill the available space */
 }
 
-/* For horizontal screens or wider screens */
-@media (min-width: 768px) {
-  #lessons {
-    grid-template-columns: repeat(2, 1fr);
+.lesson-container {
+  display: flex;
+  flex-direction: column; /* Default is one column for portrait mode */
+  text-align: left;
+  width: 100%;
+}
+
+.lesson-column {
+  width: 100%; /* Takes up full width on vertical screens */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Media query for horizontal screens */
+@media (orientation: landscape) {
+  .lesson-container {
+      flex-direction: row; /* Two columns for landscape mode */
+      justify-content: space-between; /* This spreads the columns out */
+      max-width: 1000px; /* Optional: You can set a max-width to avoid the columns being too wide on very large screens */
+      width: 100%;
+  }
+
+  .lesson-column {
+      width: 48%; /* Taking into account a small gap between the two columns */
   }
 }
