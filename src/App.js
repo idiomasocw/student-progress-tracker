@@ -8,7 +8,8 @@ import { initializeApp } from "firebase/app";
 import firebaseConfig from './firebaseConfig';
 import { testFirebaseConnection } from './firebaseTest';
 import SphereComponent from './Sphere';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { createOrUpdateGroup, createOrUpdateStudent } from './groups'; // Import the helper functions
 
 function App() {
   const [editMode, setEditMode] = useState(false);
@@ -29,12 +30,46 @@ function App() {
     "14": "B2",
     "15": "C1"
   };
-
+  const createOrUpdateFirebaseStructure = async () => {
+    // Loop over all levels
+    for (const level of levels) {
+        const moodleGroups = await getGroups(level.id); // Get groups for the current level from Moodle
+    
+        for (const group of moodleGroups) {
+            await createOrUpdateGroup(group.id, group.name);
+    
+            const moodleStudents = await getEnrolledStudents(level.id);
+            for (const student of moodleStudents) {
+                if (student.roles.some((role) => role.shortname === 'student')) { // Making sure it's a student
+                    await createOrUpdateStudent(group.id, student.id, student.fullname);
+                }
+            }
+        }
+    }
+};
 
   useEffect(() => {
     loadLevels();
     testFirebaseConnection();
   }, []);
+
+// This function will mark a lesson as completed for the entire group.
+const markLessonForGroup = async (groupId, lessonId) => {
+  const groupRef = doc(db, "groups", groupId);
+  const studentsCollectionRef = collection(groupRef, "students");
+  const studentsSnap = await getDocs(studentsCollectionRef);
+  
+  for (const studentDoc of studentsSnap.docs) {
+    const studentData = studentDoc.data();
+    const lessonsProgress = studentData.lessonsProgress || {};
+
+    // Only update if the lesson isn't already checked
+    if (!lessonsProgress[lessonId]?.checked) {
+      lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
+      await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
+    }
+  }
+};
 
   const fetchLessonsForLevel = async (levelId) => {
     const mappedLevelId = levelMapping[levelId];
@@ -43,10 +78,8 @@ function App() {
       return;
     }
 
-    console.log("Fetching lessons for level:", mappedLevelId);
     const levelRef = doc(db, "levels", `level${mappedLevelId}`);
     const levelSnap = await getDoc(levelRef);
-    console.log("Fetched level data:", levelSnap.data());
 
     if (levelSnap.exists()) {
       const lessonsData = levelSnap.data().lessons || [];
@@ -66,6 +99,7 @@ function App() {
 
     setLevels(filteredCourses);
   };
+  
 
   const loadGroups = async (courseId) => {
     const groups = await getGroups(courseId);
@@ -75,12 +109,10 @@ function App() {
   const loadStudents = async (groupId) => {
     console.log("Group ID:", groupId);
     const groupResponse = await getStudentsInGroup([groupId]);
-    console.log("Full Response:", groupResponse);
     const userIds = groupResponse[0].userids;
 
     // Get all enrolled students in the course (level)
     const allEnrolledUsers = await getEnrolledStudents(selectedLevel);
-    console.log("All Enrolled Users:", allEnrolledUsers);
 
     // Check if allEnrolledUsers is an array before proceeding
     if (Array.isArray(allEnrolledUsers)) {
@@ -89,17 +121,80 @@ function App() {
         return user.roles.some((role) => role.shortname === 'student'); // Adjust based on your role setup
       });
 
-      console.log("All Enrolled Students:", allEnrolledStudents);
-
       // Filter the students that are part of the selected group
       const studentsInGroup = allEnrolledStudents.filter(student => userIds.includes(student.id));
       setStudents(studentsInGroup);
-      console.log("Students in Group:", studentsInGroup);
     } else {
       console.error("Expected allEnrolledUsers to be an array, but received:", allEnrolledUsers);
     }
   };
 
+  const updateGroupProgress = async (groupId) => {
+    const groupRef = doc(db, "groups", groupId);
+    const groupSnap = await getDoc(groupRef);
+    let groupData = {};
+  
+    if (groupSnap.exists()) {
+      groupData = groupSnap.data();
+    } else {
+      console.error("Group data not found for group:", groupId);
+    }
+  
+    // Get students' collection reference within the group
+    const studentsCollectionRef = collection(groupRef, "students");
+    const studentsSnap = await getDocs(studentsCollectionRef);
+    
+    let totalCompletedLessons = 0;
+    let totalLessons = lessons.length * studentsSnap.size;
+  
+    studentsSnap.docs.forEach(studentDoc => {
+      totalCompletedLessons += studentDoc.data().completedLessons || 0;
+    });
+    let maxCompletedLessons = 0;
+    let maxLessonStudent = null;
+    
+    studentsSnap.docs.forEach(studentDoc => {
+      const completed = studentDoc.data().completedLessons || 0;
+      if (completed >= maxCompletedLessons) {
+        maxCompletedLessons = completed;
+        maxLessonStudent = studentDoc.data();
+      }
+    });
+
+    const groupCompletedLessons = totalCompletedLessons;
+    const groupLessonsProgress = maxLessonStudent.lessonsProgress;
+  
+// Inside the updateGroupProgress function, replace the section that builds groupLessonsProgress
+lessons.forEach((_, index) => {
+  const lessonId = `lesson${index + 1}`;
+  let allStudentsChecked = true;
+  let anyStudentChecked = false;
+
+  studentsSnap.docs.forEach(studentDoc => {
+    const studentLessonProgress = studentDoc.data().lessonsProgress || {};
+    if (studentLessonProgress[lessonId]?.checked) {
+      anyStudentChecked = true;
+    } else {
+      allStudentsChecked = false;
+    }
+  });
+
+  if (allStudentsChecked) {
+    groupLessonsProgress[lessonId] = { checked: true };
+  } else if (anyStudentChecked) {
+    groupLessonsProgress[lessonId] = maxLessonStudent.lessonsProgress[lessonId];
+  } else {
+    groupLessonsProgress[lessonId] = { checked: false };
+  }
+});
+  
+    await updateDoc(groupRef, {
+      groupCompletedLessons,
+      groupLessonsProgress
+    });
+    
+  };
+  
   const handleLevelChange = async (e) => {
     const courseId = e.target.value;
     setSelectedLevel(courseId);
@@ -119,18 +214,29 @@ function App() {
     const groupId = e.target.value;
     setSelectedGroup(groupId);
     if (groupId === "Select Group") {
-      // When the "Select Group" option is chosen, simply reset the students state.
       setStudents([]);
     } else {
-      await loadStudents(groupId); // Pass group
+      await loadStudents(groupId);
+      
+      // Fetch group's lesson progress and apply it
+      const groupRef = doc(db, "groups", groupId);
+      const groupSnap = await getDoc(groupRef);
+      if (groupSnap.exists()) {
+        const groupData = groupSnap.data();
+        const groupLessonsProgress = groupData.groupLessonsProgress || {};
+        const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = groupLessonsProgress[checkbox.id]?.checked || false;
+        });
+        const checkedLessonsCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+        setCompletedLessons(checkedLessonsCount);
+      }
     }
-  };
+};
 
   const handleStudentChange = async (e) => {
     const studentId = e.target.value;
     const selectedStudent = students.find(student => student.id == studentId);
-
-    console.log("Selected Student:", selectedStudent);
     if (selectedStudent) {
       const h1 = document.getElementById('student-name');
       h1.innerText = selectedStudent.fullname;
@@ -193,7 +299,6 @@ function App() {
         timestampSpan.dataset.timestamp = timestamp.toISOString();
         timestampSpan.textContent = formattedTime;
         timestampSpan.classList.add('timestamp');
-
       } else {
         timestampSpan.textContent = '';
         timestampSpan.classList.remove('timestamp');
@@ -221,12 +326,24 @@ function App() {
         }
       });
 
+      console.log("Updating Firestore with data:", { studentRef, checkedLessons, lessonsProgress: { completedLessons: checkedLessons, lessonsProgress: lessonProgress } });
       // Update student progress in Firestore
       await updateDoc(studentRef, { completedLessons: checkedLessons, lessonsProgress: lessonProgress });
-      console.log("Firestore update complete");
-      console.log("Updated Completed Lessons:", checkedLessons);
+      await updateGroupProgress(selectedGroup);
+      
+    } else if (selectedGroup && !students.length) { // It's the group view and no student is selected
+      await markLessonForGroup(selectedGroup, lessonId); // Update all students' progress first
+      await updateGroupProgress(selectedGroup); // Then update the group's progress
+      const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
+      const checkedLessonsCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+      setCompletedLessons(checkedLessonsCount);
     }
-  };
+     else if (selectedGroup) { // It's the group view and no student is selected
+
+        // Just compute and update the group's progress based on all students in that group
+        await updateGroupProgress(selectedGroup);
+    }
+};
 
   const startEditing = (i) => {
     setEditingValue(lessons[i].name);
@@ -319,6 +436,9 @@ function App() {
             </select>
           )}
         </div>
+        {editMode && (
+        <button onClick={createOrUpdateFirebaseStructure}>Update Firebase Structure</button>
+        )}
         <div className="edit-mode-toggle" onClick={() => setEditMode(!editMode)}>
           <span className="toggle-label">Edit mode</span>
           <FontAwesomeIcon icon={editMode ? faToggleOn : faToggleOff} />
@@ -363,8 +483,6 @@ function App() {
   );
 
 }
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
 export default App;

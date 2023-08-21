@@ -1,0 +1,5 @@
+{
+    "CodeGPT.model": "gpt-4-32k",
+    "CodeGPT.maxTokens": 10000,
+    "CodeGPT.organizationId": "org-HS3vAVXj9emxmkJrhje2JMqS"
+}

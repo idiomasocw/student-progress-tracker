@@ -73,6 +73,7 @@ body{
 }
 
 #lessons {
+  margin-top:8px;
   display: flex;
   justify-content: center; /* Horizontally center the child container */
   align-items: center; /* Vertically center the child container */
