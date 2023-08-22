@@ -439,6 +439,7 @@ lessons.forEach((_, index) => {
   return (
     <div className="App">
       <div className="header">
+        <img src="https://branding-ocw.s3.amazonaws.com/img/OCW-white-logo.png" alt="OCW Logo" className="header-logo" />
         <h1 id="student-name">
           {!selectedLevel ? "Select a Level" :
             !selectedGroup ? "Select a Group" :
@@ -512,7 +513,11 @@ lessons.forEach((_, index) => {
 
         </>
       ) : (
-        <SphereComponent />
+        <div className="sphere-container">
+  <SphereComponent />
+  <img src="https://branding-ocw.s3.amazonaws.com/img/OCW-logo+-dark.png" alt="Logo" className="centered-logo" />
+</div>
+
       )}
     </div>
   );

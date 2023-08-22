@@ -47,6 +47,8 @@ body{
   justify-content: space-between;
   align-items: center;
   background-color: rgb(14, 11, 82);
+  padding-right: 5px;
+  padding-left: 5px;
 }
 
 #student-name{color:white;}
@@ -92,6 +94,7 @@ body{
   width: 100%; /* Takes up full width on vertical screens */
   display: flex;
   flex-direction: column;
+  margin-left: 6px;
 }
 
 /* Media query for horizontal screens */
@@ -107,3 +110,19 @@ body{
       width: 48%; /* Taking into account a small gap between the two columns */
   }
 }
+
+.sphere-container {
+  position: relative;
+}
+
+.centered-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* You can set the width and height if needed */
+  width: 100px; /* For example */
+  height: auto;
+}
+
+.header-logo{width: 50px;}
