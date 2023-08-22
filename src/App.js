@@ -8,7 +8,7 @@ import { initializeApp } from "firebase/app";
 import firebaseConfig from './firebaseConfig';
 import { testFirebaseConnection } from './firebaseTest';
 import SphereComponent from './Sphere';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { createOrUpdateGroup, createOrUpdateStudent } from './groups'; // Import the helper functions
 
 function App() {
@@ -58,32 +58,39 @@ const markLessonForGroup = async (groupId, lessonId, isChecked) => {
   const groupRef = doc(db, "groups", groupId);
   const studentsCollectionRef = collection(groupRef, "students");
   const studentsSnap = await getDocs(studentsCollectionRef);
-  
+
+  // 1. Create a new batch
+  const batch = writeBatch(db);
+
   for (const studentDoc of studentsSnap.docs) {
     const studentData = studentDoc.data();
     const lessonsProgress = studentData.lessonsProgress || {};
 
-    // Create an entry if it doesn't exist
+    // If the document doesn't exist, create it
     if (!studentDoc.exists()) {
-        await setDoc(doc(studentsCollectionRef, studentDoc.id), {
-            fullname: studentData.fullname,
-            completedLessons: 0,
-            lessonsProgress: {}
-        });
+      batch.set(doc(studentsCollectionRef, studentDoc.id), {
+        fullname: studentData.fullname,
+        completedLessons: 0,
+        lessonsProgress: {}
+      });
     }
 
     // Update if the lesson state is different than the desired state
     if (lessonsProgress[lessonId]?.checked !== isChecked) {
-        lessonsProgress[lessonId] = { checked: isChecked, timestamp: new Date().toISOString() };
-        await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
-        
-        // Update student's progress percentage here
-        const completedLessonsCount = Object.values(lessonsProgress).filter(progress => progress.checked).length;
-        await updateDoc(doc(studentsCollectionRef, studentDoc.id), { completedLessons: completedLessonsCount });
+      lessonsProgress[lessonId] = { checked: isChecked, timestamp: new Date().toISOString() };
+      
+      // 2. Batch the updates instead of updating one by one
+      batch.update(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
+
+      // Update student's progress percentage here
+      const completedLessonsCount = Object.values(lessonsProgress).filter(progress => progress.checked).length;
+      batch.update(doc(studentsCollectionRef, studentDoc.id), { completedLessons: completedLessonsCount });
     }
   }
-};
 
+  // 3. Commit the batch
+  await batch.commit();
+};
 
   const fetchLessonsForLevel = async (levelId) => {
     const mappedLevelId = levelMapping[levelId];
