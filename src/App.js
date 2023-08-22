@@ -54,7 +54,7 @@ function App() {
   }, []);
 
 // This function will mark a lesson as completed for the entire group.
-const markLessonForGroup = async (groupId, lessonId) => {
+const markLessonForGroup = async (groupId, lessonId, isChecked) => {
   const groupRef = doc(db, "groups", groupId);
   const studentsCollectionRef = collection(groupRef, "students");
   const studentsSnap = await getDocs(studentsCollectionRef);
@@ -72,9 +72,9 @@ const markLessonForGroup = async (groupId, lessonId) => {
         });
     }
 
-    // Only update if the lesson isn't already checked
-    if (!lessonsProgress[lessonId]?.checked) {
-        lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
+    // Update if the lesson state is different than the desired state
+    if (lessonsProgress[lessonId]?.checked !== isChecked) {
+        lessonsProgress[lessonId] = { checked: isChecked, timestamp: new Date().toISOString() };
         await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
         
         // Update student's progress percentage here
@@ -83,6 +83,7 @@ const markLessonForGroup = async (groupId, lessonId) => {
     }
   }
 };
+
 
   const fetchLessonsForLevel = async (levelId) => {
     const mappedLevelId = levelMapping[levelId];
@@ -366,10 +367,9 @@ lessons.forEach((_, index) => {
     }
     
      else if (selectedGroup) { // It's the group view and no student is selected
-                // Mark lesson for the entire group
-                await markLessonForGroup(selectedGroup, lessonId); 
-        // Just compute and update the group's progress based on all students in that group
-        await updateGroupProgress(selectedGroup);
+    // Mark/unmark lesson for the entire group
+    await markLessonForGroup(selectedGroup, lessonId, event.target.checked); 
+    await updateGroupProgress(selectedGroup);
     }
 };
 
