@@ -60,23 +60,27 @@ const markLessonForGroup = async (groupId, lessonId) => {
   const studentsSnap = await getDocs(studentsCollectionRef);
   
   for (const studentDoc of studentsSnap.docs) {
-      const studentData = studentDoc.data();
-      const lessonsProgress = studentData.lessonsProgress || {};
+    const studentData = studentDoc.data();
+    const lessonsProgress = studentData.lessonsProgress || {};
 
-      // Create an entry if it doesn't exist
-      if (!studentDoc.exists()) {
-          await setDoc(doc(studentsCollectionRef, studentDoc.id), {
-              fullname: studentData.fullname,
-              completedLessons: 0,
-              lessonsProgress: {}
-          });
-      }
+    // Create an entry if it doesn't exist
+    if (!studentDoc.exists()) {
+        await setDoc(doc(studentsCollectionRef, studentDoc.id), {
+            fullname: studentData.fullname,
+            completedLessons: 0,
+            lessonsProgress: {}
+        });
+    }
 
-      // Only update if the lesson isn't already checked
-      if (!lessonsProgress[lessonId]?.checked) {
-          lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
-          await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
-      }
+    // Only update if the lesson isn't already checked
+    if (!lessonsProgress[lessonId]?.checked) {
+        lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
+        await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
+        
+        // Update student's progress percentage here
+        const completedLessonsCount = Object.values(lessonsProgress).filter(progress => progress.checked).length;
+        await updateDoc(doc(studentsCollectionRef, studentDoc.id), { completedLessons: completedLessonsCount });
+    }
   }
 };
 
