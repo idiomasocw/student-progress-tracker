@@ -190,20 +190,22 @@ lessons.forEach((_, index) => {
   const lessonId = `lesson${index + 1}`;
   let allStudentsChecked = true;
   let anyStudentChecked = false;
+  let lastTimestamp = null;
 
   studentsSnap.docs.forEach(studentDoc => {
     const studentLessonProgress = studentDoc.data().lessonsProgress || {};
     if (studentLessonProgress[lessonId]?.checked) {
       anyStudentChecked = true;
+      lastTimestamp = studentLessonProgress[lessonId].timestamp;
     } else {
       allStudentsChecked = false;
     }
   });
 
   if (allStudentsChecked) {
-    groupLessonsProgress[lessonId] = { checked: true };
+    groupLessonsProgress[lessonId] = { checked: true, timestamp: lastTimestamp };
   } else if (anyStudentChecked) {
-    groupLessonsProgress[lessonId] = maxLessonStudent.lessonsProgress[lessonId];
+    groupLessonsProgress[lessonId] = { checked: true, timestamp: lastTimestamp };
   } else {
     groupLessonsProgress[lessonId] = { checked: false };
   }
