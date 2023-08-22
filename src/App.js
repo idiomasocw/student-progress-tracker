@@ -60,14 +60,23 @@ const markLessonForGroup = async (groupId, lessonId) => {
   const studentsSnap = await getDocs(studentsCollectionRef);
   
   for (const studentDoc of studentsSnap.docs) {
-    const studentData = studentDoc.data();
-    const lessonsProgress = studentData.lessonsProgress || {};
+      const studentData = studentDoc.data();
+      const lessonsProgress = studentData.lessonsProgress || {};
 
-    // Only update if the lesson isn't already checked
-    if (!lessonsProgress[lessonId]?.checked) {
-      lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
-      await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
-    }
+      // Create an entry if it doesn't exist
+      if (!studentDoc.exists()) {
+          await setDoc(doc(studentsCollectionRef, studentDoc.id), {
+              fullname: studentData.fullname,
+              completedLessons: 0,
+              lessonsProgress: {}
+          });
+      }
+
+      // Only update if the lesson isn't already checked
+      if (!lessonsProgress[lessonId]?.checked) {
+          lessonsProgress[lessonId] = { checked: true, timestamp: new Date().toISOString() };
+          await updateDoc(doc(studentsCollectionRef, studentDoc.id), { lessonsProgress });
+      }
   }
 };
 
@@ -288,10 +297,18 @@ lessons.forEach((_, index) => {
   const handleCheckboxChange = async (event) => {
     const targetCheckbox = event.target;
     const lessonId = targetCheckbox.id;
+  
+    // Check if you are in 'group view' with no students FIRST
+    if (selectedGroup && !students.length) { 
+      alert("There are no students in this group");
+      event.preventDefault(); // Prevent the checkbox from being checked
+      return;
+    }
+  
     const lessonIndex = parseInt(lessonId.replace('lesson', '')) - 1; // Extract index from id
     const timestampSpan = document.getElementById(`timestamp-lesson${lessonIndex + 1}`);
-
-    // If it's the first time checking the box or unchecking it, update the timestamp
+  
+    // Then handle the timestamp update
     if (!timestampSpan.dataset.checked || timestampSpan.dataset.checked !== targetCheckbox.checked.toString()) {
       if (targetCheckbox.checked) {
         const timestamp = new Date();
@@ -303,7 +320,6 @@ lessons.forEach((_, index) => {
         timestampSpan.textContent = '';
         timestampSpan.classList.remove('timestamp');
       }
-
       timestampSpan.dataset.checked = targetCheckbox.checked;
     }
 
@@ -331,15 +347,23 @@ lessons.forEach((_, index) => {
       await updateDoc(studentRef, { completedLessons: checkedLessons, lessonsProgress: lessonProgress });
       await updateGroupProgress(selectedGroup);
       
-    } else if (selectedGroup && !students.length) { // It's the group view and no student is selected
-      await markLessonForGroup(selectedGroup, lessonId); // Update all students' progress first
-      await updateGroupProgress(selectedGroup); // Then update the group's progress
+    } else if (selectedGroup && !students.length) { 
+      if (!students.length) {
+        alert("There are no students in this group");
+        event.preventDefault(); // Prevent the checkbox from being checked
+        return;
+      }
+      
+      await markLessonForGroup(selectedGroup, lessonId); 
+      await updateGroupProgress(selectedGroup);
       const checkboxes = document.querySelectorAll("#lessons input[type='checkbox']");
       const checkedLessonsCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
       setCompletedLessons(checkedLessonsCount);
     }
+    
      else if (selectedGroup) { // It's the group view and no student is selected
-
+                // Mark lesson for the entire group
+                await markLessonForGroup(selectedGroup, lessonId); 
         // Just compute and update the group's progress based on all students in that group
         await updateGroupProgress(selectedGroup);
     }
