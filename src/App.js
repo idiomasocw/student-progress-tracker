@@ -50,7 +50,7 @@ function App() {
     };
 
     return (
-        <Router>
+        <Router basename="/student-progress-tracker">
             <div>
                 {role && (
                     <div className='logout-container'>
