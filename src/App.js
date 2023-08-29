@@ -13,8 +13,8 @@ const LogoutButton = ({ onLogout }) => {
         navigate('/login');
     };
     return (
-        <button onClick={handleLogout}>
-            <FontAwesomeIcon className='logoutButton' icon={faSignOutAlt} />
+        <button className='signoutButton' onClick={handleLogout}>
+            <FontAwesomeIcon className='logoutIcon' icon={faSignOutAlt}/>
         </button>
     );
 };

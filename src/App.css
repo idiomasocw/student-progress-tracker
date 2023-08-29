@@ -88,6 +88,8 @@ body{
   flex-direction: column; /* Default is one column for portrait mode */
   text-align: left;
   width: 100%;
+  padding-bottom: 15px;
+  padding-top:5px;
 }
 
 .lesson-column {
@@ -154,12 +156,25 @@ form {
 }
 
 .logout-container{
-  background-color: #05041d;
+  background-color: #090732;
   display: flex;
   justify-content: end;
   padding: 3px;
 }
 
-.logoutButton{
+.logoutIcon{
   cursor: pointer;
+  color:#05041d;
+}
+
+.signoutButton{
+  background-color:#f0f8ff;
+  border-radius: 2px;
+  border:none;
+  padding: 4px;
+  transition: all 0.3s ease-in-out
+}
+
+.signoutButton:hover{
+  transform:scale(0.8);
 }
